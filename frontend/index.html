@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>会声会纪服务端控制面板</title>
+    <style>
+        :root {
+            --color-bg: #1a1825;
+            --color-bg-elevated: #2d2a3d;
+            --color-bg-card: #272435;
+            --color-border: #4a4358;
+            --color-border-subtle: #3d3650;
+            --color-text-primary: #f0f0f5;
+            --color-text-secondary: #a0a0b0;
+            --color-text-muted: #707080;
+            --color-accent: #a78bfa;
+            --color-accent-dim: rgba(167, 139, 250, 0.15);
+            --color-accent-glow: rgba(167, 139, 250, 0.35);
+            --color-success: #34d399;
+            --color-warning: #fbbf24;
+            --color-error: #f87171;
+            --color-info: #60a5fa;
+            --font-display: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+            --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            --transition-fast: 150ms ease;
+            --transition-base: 250ms ease;
+            --transition-slow: 400ms ease;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--color-bg);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Animated Grid Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(167, 139, 250, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(167, 139, 250, 0.04) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Scanline Effect */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                180deg,
+                transparent 0%,
+                rgba(167, 139, 250, 0.03) 50%,
+                transparent 100%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 1;
+            animation: scanlines 8s linear infinite;
+        }
+
+        @keyframes scanlines {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(4px); }
+        }
+
+        /* Content Wrapper */
+        #app {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Glowing Border Effect */
+        .glow-border {
+            position: relative;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-card);
+            box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        .glow-border::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(135deg, var(--color-accent), transparent 50%, transparent);
+            border-radius: inherit;
+            opacity: 0;
+            transition: opacity var(--transition-base);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .glow-border:hover::before {
+            opacity: 0.5;
+        }
+
+        .glow-border:hover {
+            box-shadow: 0 8px 30px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Status Dot Glow Animation */
+        @keyframes statusPulse {
+            0%, 100% {
+                box-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+            }
+            50% {
+                box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+            }
+        }
+
+        .status-dot {
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+
+        /* Modal Styles */
+        .modal-backdrop {
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-content {
+            animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.96) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        /* Toast Animations */
+        .toast {
+            animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                       toastFadeOut 0.3s ease-in 2.7s forwards;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                transform: translateX(120%) skewX(-5deg);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0) skewX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastFadeOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+        }
+
+        /* Button Hover Effects */
+        .btn-primary {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, var(--color-accent) 0%, #8b5cf6 100%);
+            color: #1a1825;
+            font-weight: 600;
+            transition: all var(--transition-base);
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+            opacity: 0;
+            transition: opacity var(--transition-base);
+        }
+
+        .btn-primary:hover::before {
+            opacity: 1;
+        }
+
+        .btn-primary span {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Input Focus Effect */
+        input:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px var(--color-accent-dim), 0 0 20px var(--color-accent-glow);
+        }
+
+        /* Card Hover Effect */
+        .service-card {
+            transition: all var(--transition-base);
+            box-shadow: 0 2px 10px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        .service-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--color-accent);
+            box-shadow: 0 10px 40px -10px rgba(167, 139, 250, 0.25);
+        }
+
+        /* Loading Spinner */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Fade In Animation for Page Load */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .animate-delay-1 { animation-delay: 0.1s; }
+        .animate-delay-2 { animation-delay: 0.2s; }
+        .animate-delay-3 { animation-delay: 0.3s; }
+        .animate-delay-4 { animation-delay: 0.4s; }
+
+        /* Decorative Corner Marks */
+        .corner-marks {
+            position: relative;
+        }
+
+        .corner-marks::before,
+        .corner-marks::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-color: #a78bfa;
+            opacity: 0.4;
+        }
+
+        .corner-marks::before {
+            top: -1px;
+            left: -1px;
+            border-top: 2px solid;
+            border-left: 2px solid;
+        }
+
+        .corner-marks::after {
+            bottom: -1px;
+            right: -1px;
+            border-bottom: 2px solid;
+            border-right: 2px solid;
+        }
+    </style>
+</head>
+<body class="antialiased">
+<!-- Toast 通知容器 -->
+<div id="toastContainer" class="fixed top-6 right-6 z-[60] flex flex-col gap-3 pointer-events-none"></div>
+
+<!-- 确认对话框 -->
+<div id="confirmDialog" class="fixed inset-0 z-[70] hidden">
+    <div class="modal-backdrop absolute inset-0" onclick="confirmDialogCancel()"></div>
+    <div class="relative min-h-screen flex items-center justify-center p-4">
+        <div class="modal-content glow-border rounded-xl w-full max-w-md relative p-6 corner-marks">
+            <h3 id="confirmTitle" class="text-xl font-bold mb-4" style="font-family: var(--font-display); color: var(--color-accent);">确认操作</h3>
+            <p id="confirmMessage" class="mb-6" style="color: var(--color-text-secondary); line-height: 1.6;">确定要执行此操作吗？</p>
+            <div class="flex gap-3">
+                <button onclick="confirmDialogCancel()"
+                        class="flex-1 py-2.5 px-4 rounded-lg transition font-semibold border cursor-pointer"
+                        style="background: transparent; border-color: var(--color-border); color: var(--color-text-secondary);">
+                    取消
+                </button>
+                <button onclick="confirmDialogOk()"
+                        class="flex-1 py-2.5 px-4 rounded-lg transition font-semibold cursor-pointer"
+                        style="background: var(--color-error); color: white;">
+                    确定
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 设置按钮 -->
+<button onclick="openSSHConfigModal()" id="settingsBtn"
+        class="fixed top-6 right-6 z-40 px-4 py-2.5 rounded-lg transition flex items-center gap-2 shadow-lg font-medium text-sm cursor-pointer border"
+        style="background: var(--color-bg-elevated); border-color: var(--color-border); color: var(--color-text-secondary);">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+    </svg>
+    <span>配置</span>
+</button>
+
+<!-- SSH 配置模态框 -->
+<div id="sshConfigModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-backdrop absolute inset-0" onclick="closeSSHConfigModal()"></div>
+
+    <div class="relative min-h-screen flex items-center justify-center p-4">
+        <div class="modal-content glow-border rounded-xl w-full max-w-lg relative corner-marks">
+            <!-- 关闭按钮 -->
+            <button onclick="closeSSHConfigModal()"
+                    class="absolute top-4 right-4 transition rounded-lg p-1 cursor-pointer"
+                    style="color: var(--color-text-muted);">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+
+            <!-- 标题 -->
+            <div class="p-6 pb-4 border-b" style="border-color: var(--color-border-subtle);">
+                <h2 class="text-xl font-bold" style="font-family: var(--font-display); color: var(--color-accent);">SSH 远程连接配置</h2>
+            </div>
+
+            <!-- 表单内容 -->
+            <div class="p-6 space-y-5">
+                <!-- 提示信息 -->
+                <div class="p-4 rounded-lg" style="background: linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(0, 212, 255, 0.04) 100%); border-left: 3px solid var(--color-info);">
+                    <p class="text-sm" style="color: var(--color-text-secondary);">
+                        <strong style="color: var(--color-info);">SSH 认证方式：</strong><br>
+                        <span style="color: var(--color-text-muted);">• 密码认证：直接输入密码</span><br>
+                        <span style="color: var(--color-text-muted);">• 密钥认证：密码留空，自动使用 ~/.ssh/id_ed25519</span>
+                    </p>
+                </div>
+
+                <div class="p-4 rounded-lg" style="background: linear-gradient(135deg, rgba(255, 184, 0, 0.08) 0%, rgba(255, 184, 0, 0.04) 100%); border-left: 3px solid var(--color-warning);">
+                    <p class="text-sm" style="color: var(--color-text-secondary);">
+                        <strong style="color: var(--color-warning);">⚠️ 电源控制提示：</strong><br>
+                        <span style="color: var(--color-text-muted);">• 远程关机/重启需要 sudo 权限</span><br>
+                        <span style="color: var(--color-text-muted);">• 配置无密码 sudo：sudo visudo 添加 username ALL=(ALL) NOPASSWD: ALL</span>
+                    </p>
+                </div>
+
+                <!-- 表单字段 -->
+                <div class="space-y-1">
+                    <label class="block text-sm font-medium mb-2" style="color: var(--color-text-secondary);">IP 地址</label>
+                    <input id="sshHost" type="text" placeholder="192.168.1.100"
+                           class="w-full px-4 py-2.5 rounded-lg transition text-sm"
+                           style="background: var(--color-bg-elevated); border: 1px solid var(--color-border); color: var(--color-text-primary);">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-sm font-medium mb-2" style="color: var(--color-text-secondary);">端口</label>
+                        <input id="sshPort" type="text" placeholder="22"
+                               class="w-full px-4 py-2.5 rounded-lg transition text-sm"
+                               style="background: var(--color-bg-elevated); border: 1px solid var(--color-border); color: var(--color-text-primary);">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-sm font-medium mb-2" style="color: var(--color-text-secondary);">用户名</label>
+                        <input id="sshUsername" type="text" placeholder="username"
+                               class="w-full px-4 py-2.5 rounded-lg transition text-sm"
+                               style="background: var(--color-bg-elevated); border: 1px solid var(--color-border); color: var(--color-text-primary);">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-sm font-medium mb-2" style="color: var(--color-text-secondary);">密码（可选）</label>
+                    <input id="sshPassword" type="password" placeholder="留空使用密钥认证"
+                           class="w-full px-4 py-2.5 rounded-lg transition text-sm"
+                           style="background: var(--color-bg-elevated); border: 1px solid var(--color-border); color: var(--color-text-primary);">
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="flex gap-3 pt-2">
+                    <button onclick="saveSSHConfig()"
+                            class="flex-1 py-2.5 px-4 rounded-lg transition font-semibold cursor-pointer btn-primary">
+                        <span>保存配置</span>
+                    </button>
+                    <button onclick="testSSHConnection()"
+                            class="flex-1 py-2.5 px-4 rounded-lg transition font-semibold cursor-pointer border"
+                            style="background: transparent; border-color: var(--color-accent); color: var(--color-accent);">
+                        测试连接
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 主应用容器 -->
+<div id="app" class="container mx-auto px-6 py-12 max-w-5xl">
+    <!-- 头部：Logo 和标题 -->
+    <div class="flex flex-col items-center mb-12 animate-in">
+        <div class="relative mb-6">
+            <div class="absolute inset-0 opacity-20" style="background: radial-gradient(circle, var(--color-accent) 0%, transparent 70%);"></div>
+            <div class="w-20 h-20 relative z-10 flex items-center justify-center" style="filter: drop-shadow(0 0 20px var(--color-accent-glow));">
+                <svg class="w-16 h-16" style="color: var(--color-accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                </svg>
+            </div>
+        </div>
+        <h1 class="text-3xl font-bold tracking-tight" style="font-family: var(--font-display); color: var(--color-text-primary); text-shadow: 0 0 40px var(--color-accent-glow);">
+            会声会纪服务端控制面板
+        </h1>
+        <p class="mt-3 text-sm" style="color: var(--color-text-muted); font-family: var(--font-display);">REMOTE CONTROL PANEL v1.0</p>
+    </div>
+
+    <!-- 系统信息卡片 -->
+    <div class="glow-border rounded-xl p-6 mb-6 animate-in animate-delay-1 corner-marks">
+        <div class="flex items-center justify-between mb-5">
+            <h2 class="text-lg font-semibold flex items-center gap-2" style="font-family: var(--font-display); color: var(--color-text-primary);">
+                <svg class="w-5 h-5" style="color: var(--color-accent);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                </svg>
+                系统信息
+            </h2>
+            <!-- 连接状态指示器 -->
+            <div class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-subtle);">
+                <span id="connectionStatusDot" class="status-dot w-2 h-2 rounded-full" style="background: var(--color-text-muted);"></span>
+                <span id="connectionStatusText" class="text-xs font-medium" style="font-family: var(--font-display); color: var(--color-text-muted);">检查中...</span>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="text-center p-3 rounded-lg border" style="background: var(--color-bg-elevated); border-color: var(--color-border-subtle);">
+                <p class="text-xs mb-1" style="color: var(--color-text-muted); font-family: var(--font-display);">远程主机</p>
+                <p id="remoteHost" class="font-semibold text-sm" style="color: var(--color-accent);">—</p>
+            </div>
+            <div class="text-center p-3 rounded-lg border" style="background: var(--color-bg-elevated); border-color: var(--color-border-subtle);">
+                <p class="text-xs mb-1" style="color: var(--color-text-muted); font-family: var(--font-display);">操作系统</p>
+                <p id="remoteOS" class="font-semibold text-sm" style="color: var(--color-text-primary);">—</p>
+            </div>
+            <div class="text-center p-3 rounded-lg border" style="background: var(--color-bg-elevated); border-color: var(--color-border-subtle);">
+                <p class="text-xs mb-1" style="color: var(--color-text-muted); font-family: var(--font-display);">架构</p>
+                <p id="remoteArch" class="font-semibold text-sm" style="color: var(--color-text-primary);">—</p>
+            </div>
+            <div class="text-center p-3 rounded-lg border" style="background: var(--color-bg-elevated); border-color: var(--color-border-subtle);">
+                <p class="text-xs mb-1" style="color: var(--color-text-muted); font-family: var(--font-display);">运行时间</p>
+                <p id="remoteUptime" class="font-semibold text-sm" style="color: var(--color-text-primary);">—</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 远程电源控制 -->
+    <div class="glow-border rounded-xl p-6 mb-6 animate-in animate-delay-2 corner-marks">
+        <h2 class="text-lg font-semibold mb-5 flex items-center gap-2" style="font-family: var(--font-display); color: var(--color-text-primary);">
+            <svg class="w-5 h-5" style="color: var(--color-warning);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+            远程电源控制
+        </h2>
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="remoteShutdown()"
+                    class="py-4 px-6 rounded-lg transition font-semibold flex items-center justify-center gap-3 cursor-pointer border"
+                    style="background: linear-gradient(135deg, rgba(255, 71, 87, 0.15) 0%, rgba(255, 71, 87, 0.05) 100%); border-color: rgba(255, 71, 87, 0.3); color: var(--color-error);">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+                </svg>
+                <span>远程关机</span>
+            </button>
+            <button onclick="remoteRestart()"
+                    class="py-4 px-6 rounded-lg transition font-semibold flex items-center justify-center gap-3 cursor-pointer border"
+                    style="background: linear-gradient(135deg, rgba(255, 184, 0, 0.15) 0%, rgba(255, 184, 0, 0.05) 100%); border-color: rgba(255, 184, 0, 0.3); color: var(--color-warning);">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                <span>远程重启</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 服务管理 -->
+    <div class="glow-border rounded-xl p-6 animate-in animate-delay-3 corner-marks">
+        <h2 class="text-lg font-semibold mb-5 flex items-center gap-2" style="font-family: var(--font-display); color: var(--color-text-primary);">
+            <svg class="w-5 h-5" style="color: var(--color-success);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 01-2 2v4a2 2 0 012 2h14a2 2 0 012-2v-4a2 2 0 01-2-2m-2-4h.01M17 16h.01"></path>
+            </svg>
+            服务管理
+        </h2>
+        <div class="space-y-3">
+            <div class="service-card flex items-center justify-between p-4 rounded-lg border" style="background: var(--color-bg-elevated); border-color: var(--color-border);">
+                <div>
+                    <h3 class="font-semibold mb-1" style="color: var(--color-text-primary);">语音转写服务</h3>
+                    <p class="text-xs" style="color: var(--color-text-muted); font-family: var(--font-display);">voice-transcription-celery.service</p>
+                </div>
+                <button onclick="restartService('voice-transcription-celery.service', '语音转写服务')"
+                        class="py-2 px-4 rounded-lg transition font-medium cursor-pointer flex items-center gap-2 text-sm border"
+                        style="background: transparent; border-color: var(--color-accent); color: var(--color-accent);">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    重启
+                </button>
+            </div>
+
+            <div class="service-card flex items-center justify-between p-4 rounded-lg border" style="background: var(--color-bg-elevated); border-color: var(--color-border);">
+                <div>
+                    <h3 class="font-semibold mb-1" style="color: var(--color-text-primary);">任务处理系统</h3>
+                    <p class="text-xs" style="color: var(--color-text-muted); font-family: var(--font-display);">ga-tingfeng-api-celery.service</p>
+                </div>
+                <button onclick="restartService('ga-tingfeng-api-celery.service', '任务处理系统')"
+                        class="py-2 px-4 rounded-lg transition font-medium cursor-pointer flex items-center gap-2 text-sm border"
+                        style="background: transparent; border-color: var(--color-accent); color: var(--color-accent);">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    重启
+                </button>
+            </div>
+
+            <div class="service-card flex items-center justify-between p-4 rounded-lg border" style="background: var(--color-bg-elevated); border-color: var(--color-border);">
+                <div>
+                    <h3 class="font-semibold mb-1" style="color: var(--color-text-primary);">后端管理服务</h3>
+                    <p class="text-xs" style="color: var(--color-text-muted); font-family: var(--font-display);">ga-tingfeng-api.service</p>
+                </div>
+                <button onclick="restartService('ga-tingfeng-api.service', '后端管理服务')"
+                        class="py-2 px-4 rounded-lg transition font-medium cursor-pointer flex items-center gap-2 text-sm border"
+                        style="background: transparent; border-color: var(--color-accent); color: var(--color-accent);">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    重启
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部装饰线 -->
+    <div class="mt-12 flex items-center justify-center animate-in animate-delay-4">
+        <div class="h-px flex-1" style="background: linear-gradient(90deg, transparent, var(--color-border-subtle), transparent);"></div>
+        <div class="px-4 text-xs" style="color: var(--color-text-muted); font-family: var(--font-display);">
+            SECURE CONNECTION ESTABLISHED
+        </div>
+        <div class="h-px flex-1" style="background: linear-gradient(90deg, transparent, var(--color-border-subtle), transparent);"></div>
+    </div>
+</div>
+
+<script src="./src/main.js" type="module"></script>
+</body>
+</html>

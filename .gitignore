@@ -1,0 +1,59 @@
+# 构建产物
+build/
+bin/
+dist/
+
+# 前端依赖和构建产物
+frontend/node_modules/
+frontend/dist/
+node_modules/
+
+# Go 相关
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+vendor/
+
+# Wails 生成的文件
+wailsjs/
+app.syso
+
+# 配置文件（包含敏感信息）
+settings.json
+
+# IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-*
+
+ # 日志文件
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+.cache/
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+*.bak
+
+# 调试文件
+debug
+__debug_bin
