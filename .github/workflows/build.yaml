@@ -1,0 +1,102 @@
+name: Wails Build
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送 v 开头的 tag 时触发（例如 v1.0.0），用于发布 release
+  workflow_dispatch: # 允许手动在 GitHub 网页界面触发
+
+env:
+  # 设置 Go 版本，建议与你本地保持一致
+  GO_VERSION: '1.21'
+  # 设置 Node 版本
+  NODE_VERSION: '18'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 这里定义三个平台的构建环境
+        os: [ubuntu-20.04, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # --- Linux 特有依赖 ---
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      # --- 安装 Wails CLI ---
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      # --- 构建项目 ---
+      - name: Build Application
+        shell: bash
+        run: |
+          # -clean 清理缓存
+          # -platform 强制指定平台（虽然会自动识别，显式指定更安全）
+          if [ "${{ runner.os }}" == "Windows" ]; then
+             wails build -clean -platform windows/amd64
+          elif [ "${{ runner.os }}" == "macOS" ]; then
+             wails build -clean -platform darwin/universal
+          else
+             wails build -clean -platform linux/amd64
+          fi
+
+      # --- 处理 macOS .app 文件 (可选，方便下载) ---
+      # macOS 构建出来是 .app 文件夹，GitHub Artifact 不支持文件夹上传，需要压缩
+      - name: Compress macOS App
+        if: runner.os == 'macOS'
+        run: |
+          cd build/bin
+          # 假设你的 App 名字是 myapp (根据 wails.json 里的 name 修改)
+          # 为了通用，这里压缩 bin 下的所有 .app
+          tar -czf macos_app.tar.gz *.app
+
+      # --- 上传构建产物 (Artifacts) ---
+      # 这些文件可以在 Action 执行页面的 Summary 中下载
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wails-Build-${{ matrix.os }}
+          path: |
+            build/bin/*
+            !build/bin/*.app  # 排除 macOS 的原始 .app 文件夹（已压缩）
+
+  # --- (可选) 自动发布 Release ---
+  # 如果你是通过 push tag 触发的，这个 job 会把文件发布到 Releases 页面
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
