@@ -8,9 +8,9 @@ on:
 
 env:
   # 设置 Go 版本，建议与你本地保持一致
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.24'
   # 设置 Node 版本
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
 
 jobs:
   build:
@@ -46,6 +46,10 @@ jobs:
       # --- 安装 Wails CLI ---
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      # --- 安装前端依赖 ---
+      - name: Install Frontend Dependencies
+        run: cd frontend && npm install
 
       # --- 构建项目 ---
       - name: Build Application
