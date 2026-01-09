@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         # 这里定义三个平台的构建环境
-        os: [ubuntu-20.04, windows-latest, macos-latest]
+        os: [ubuntu-22.04, windows-latest, macos-latest]
 
     steps:
       - name: Checkout code
